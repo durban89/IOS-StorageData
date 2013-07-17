@@ -10,7 +10,9 @@
 #import "StorageData.h"
 #import "xunYi7AppDelegate.h"
 
+
 @implementation StorageData
+
 
 -(void) connection:(NSURLConnection *)connection didReceiveData:(NSData *)data{
     NSLog(@"开始结didReceiveData搜数据");
@@ -50,6 +52,12 @@
                                                                                          error:&receiveDataError];
         [UIApplication sharedApplication].networkActivityIndicatorVisible = NO;
         
+        if(receivedData != nil){
+            if([self storageDataToFile:receivedData fileName:currentDataFilePath]){
+                [self removeDirectory];
+            }
+        }
+        
         return receivedData;
     }else{
         [xunYi7AppDelegate showNetworkMessage];
@@ -80,10 +88,10 @@
         
         if(receivedData != nil){
             if([self storageDataToFile:receivedData fileName:currentDataFilePath]){
-                NSLog(@"保存成功");
+//                NSLog(@"保存成功");
                 [self removeDirectory];
             }else{
-                NSLog(@"保存失败");
+//                NSLog(@"保存失败");
             }
         }else{
             if((localData = [self fromFilenamePathFetchLocalData:yesterdayDataFilePath]) != nil){
@@ -93,6 +101,402 @@
         return receivedData;
     }
     return nil;
+}
+
+#pragma mark - 获取本地数据的Dcitionary格式-艺人排行版
++(NSDictionary *) localFetchPersonRankDictionayData:(NSString *)dataUrlString{
+    NSString *currentDataFilePath = [[self dataPath] stringByAppendingPathComponent:[self fetchTodayDate]];
+    NSString *yesterdayDataFilePath = [[self dataPath] stringByAppendingPathComponent:[self fetchYesterdayDate]];
+    
+    //创建目录
+    currentDataFilePath = [self createDirectory:currentDataFilePath];
+    
+    currentDataFilePath = [currentDataFilePath stringByAppendingPathComponent:[NSString stringWithFormat:@"%@-dictionary.plist",[self md5:dataUrlString]]];
+    yesterdayDataFilePath = [yesterdayDataFilePath stringByAppendingPathComponent:[NSString stringWithFormat:@"%@-dictionary.plist",[self md5:dataUrlString]]];
+    
+    NSDictionary *localDictionaryData = [self fromFilenamePathFetchLocalDictionaryData:currentDataFilePath];
+    
+    if(localDictionaryData != nil){//本地数据
+//        NSLog(@"本地数据 Dictionary 数据");
+        return localDictionaryData;
+    }else{//远程获取数据
+//        NSLog(@"远程获取数据 Dictionary 数据");
+        NSMutableData *receivedData = [self remoteFetchData:dataUrlString];
+
+        if(receivedData != nil){
+            [UIApplication sharedApplication].networkActivityIndicatorVisible = NO;
+            NSError *jsonError = [[NSError alloc] init];
+            NSDictionary *personDictionary = [NSJSONSerialization JSONObjectWithData:receivedData
+                                                                             options:NSJSONReadingMutableContainers
+                                                                               error:&jsonError];
+            
+            NSDictionary *personInfo = [personDictionary objectForKey:@"data"];
+            
+            if([self storageDictionaryDataToFile:personInfo fileName:currentDataFilePath]){
+//                NSLog(@"远程数据存储成功");
+                return personInfo;
+                [self removeDirectory];
+            }else{
+//                NSLog(@"远程数据存储失败");s
+            }
+        }else{
+            if((localDictionaryData = [self fromFilenamePathFetchLocalDictionaryData:yesterdayDataFilePath]) != nil){
+                return localDictionaryData;
+            }
+        }
+    }
+    return nil;
+}
+
+#pragma mark - 获取本地数据的Dcitionary格式-关注列表
++(NSDictionary *) localFetchAttentionListDictionayData:(NSString *)dataUrlString{
+    NSString *currentDataFilePath = [[self dataPath] stringByAppendingPathComponent:[self fetchTodayDate]];
+    NSString *yesterdayDataFilePath = [[self dataPath] stringByAppendingPathComponent:[self fetchYesterdayDate]];
+    
+    //创建目录
+    currentDataFilePath = [self createDirectory:currentDataFilePath];
+    
+    currentDataFilePath = [currentDataFilePath stringByAppendingPathComponent:[NSString stringWithFormat:@"%@-dictionary.plist",[self md5:dataUrlString]]];
+    yesterdayDataFilePath = [yesterdayDataFilePath stringByAppendingPathComponent:[NSString stringWithFormat:@"%@-dictionary.plist",[self md5:dataUrlString]]];
+    
+    NSDictionary *localDictionaryData = [self fromFilenamePathFetchLocalDictionaryData:currentDataFilePath];
+    
+    if(localDictionaryData != nil){//本地数据
+//        NSLog(@"本地数据 localFetchAttentionListDictionayData 数据");
+        return localDictionaryData;
+    }else{//远程获取数据
+//        NSLog(@"远程获取数据 localFetchAttentionListDictionayData 数据");
+        NSMutableData *receivedData = [self remoteFetchData:dataUrlString];
+        
+        if(receivedData != nil){
+            [UIApplication sharedApplication].networkActivityIndicatorVisible = NO;
+            NSError *jsonError = [[NSError alloc] init];
+            NSDictionary *attentionDictionary = [NSJSONSerialization JSONObjectWithData:receivedData
+                                                                             options:NSJSONReadingMutableContainers
+                                                                               error:&jsonError];
+            
+            NSDictionary *attentionData = [attentionDictionary objectForKey:@"data"];
+            
+            if([self storageDictionaryDataToFile:attentionData fileName:currentDataFilePath]){
+//                NSLog(@"localFetchAttentionListDictionayData 远程数据存储成功");
+                return attentionData;
+                [self removeDirectory];
+            }else{
+                return attentionData;
+//                NSLog(@"localFetchAttentionListDictionayData 远程数据存储失败");
+            }
+        }else{
+            if((localDictionaryData = [self fromFilenamePathFetchLocalDictionaryData:yesterdayDataFilePath]) != nil){
+                return localDictionaryData;
+            }
+        }
+    }
+    return nil;
+}
+
+#pragma mark - 获取远程数据的Dcitionary格式-关注列表
++(NSDictionary *) remoteFetchAttentionListDictionayData:(NSString *)dataUrlString{
+    NSString *currentDataFilePath = [[self dataPath] stringByAppendingPathComponent:[self fetchTodayDate]];
+    NSString *yesterdayDataFilePath = [[self dataPath] stringByAppendingPathComponent:[self fetchYesterdayDate]];
+    
+    //创建目录
+    currentDataFilePath = [self createDirectory:currentDataFilePath];
+    
+    currentDataFilePath = [currentDataFilePath stringByAppendingPathComponent:[NSString stringWithFormat:@"%@-dictionary.plist",[self md5:dataUrlString]]];
+    yesterdayDataFilePath = [yesterdayDataFilePath stringByAppendingPathComponent:[NSString stringWithFormat:@"%@-dictionary.plist",[self md5:dataUrlString]]];
+
+    NSMutableData *receivedData = [self remoteFetchData:dataUrlString];
+    
+    if(receivedData != nil){
+        [UIApplication sharedApplication].networkActivityIndicatorVisible = NO;
+        NSError *jsonError = [[NSError alloc] init];
+        NSDictionary *attentionDictionary = [NSJSONSerialization JSONObjectWithData:receivedData
+                                                                            options:NSJSONReadingMutableContainers
+                                                                              error:&jsonError];
+        
+        NSDictionary *attentionData = [attentionDictionary objectForKey:@"data"];
+        
+        if([self storageDictionaryDataToFile:attentionData fileName:currentDataFilePath]){
+            //                NSLog(@"localFetchAttentionListDictionayData 远程数据存储成功");
+            return attentionData;
+            [self removeDirectory];
+        }else{
+            return attentionData;
+            //                NSLog(@"localFetchAttentionListDictionayData 远程数据存储失败");
+        }
+    }
+    
+    return nil;
+}
+
+#pragma mark - 获取本地数据的Dcitionary格式-机会列表
++(NSDictionary *) localFetchChanceListDictionayData:(NSString *)dataUrlString{
+    NSString *currentDataFilePath = [[self dataPath] stringByAppendingPathComponent:[self fetchTodayDate]];
+    NSString *yesterdayDataFilePath = [[self dataPath] stringByAppendingPathComponent:[self fetchYesterdayDate]];
+    
+    //创建目录
+    currentDataFilePath = [self createDirectory:currentDataFilePath];
+    
+    currentDataFilePath = [currentDataFilePath stringByAppendingPathComponent:[NSString stringWithFormat:@"%@-dictionary.plist",[self md5:dataUrlString]]];
+    yesterdayDataFilePath = [yesterdayDataFilePath stringByAppendingPathComponent:[NSString stringWithFormat:@"%@-dictionary.plist",[self md5:dataUrlString]]];
+    
+    NSDictionary *localDictionaryData = [self fromFilenamePathFetchLocalDictionaryData:currentDataFilePath];
+    
+    if(localDictionaryData != nil){//本地数据
+//        NSLog(@"本地数据 localFetchChanceListDictionayData 数据");
+        return localDictionaryData;
+    }else{//远程获取数据
+//        NSLog(@"远程获取数据 localFetchChanceListDictionayData 数据");
+        NSMutableData *receivedData = [self remoteFetchData:dataUrlString];
+        
+        if(receivedData != nil){
+            [UIApplication sharedApplication].networkActivityIndicatorVisible = NO;
+            NSError *jsonError = [[NSError alloc] init];
+            NSDictionary *chanceDictionary = [NSJSONSerialization JSONObjectWithData:receivedData
+                                                                                options:NSJSONReadingMutableContainers
+                                                                                  error:&jsonError];
+            
+            NSMutableDictionary *chanceData = [chanceDictionary objectForKey:@"data"];
+            
+            if([self storageDictionaryDataToFile:chanceData fileName:currentDataFilePath]){
+//                NSLog(@"localFetchChanceListDictionayData 远程数据存储成功");
+                return chanceData;
+                [self removeDirectory];
+            }else{
+                return chanceData;
+//                NSLog(@"localFetchChanceListDictionayData 远程数据存储失败");
+            }
+        }else{
+            if((localDictionaryData = [self fromFilenamePathFetchLocalDictionaryData:yesterdayDataFilePath]) != nil){
+                return localDictionaryData;
+            }
+        }
+    }
+    return nil;
+}
+
+#pragma mark - 获取本地数据的Dcitionary格式-电视剧排行榜
++(NSDictionary *) localFetchTeleplayRankDictionayData:(NSString *)dataUrlString{
+    NSString *currentDataFilePath = [[self dataPath] stringByAppendingPathComponent:[self fetchTodayDate]];
+    NSString *yesterdayDataFilePath = [[self dataPath] stringByAppendingPathComponent:[self fetchYesterdayDate]];
+    
+    //创建目录
+    currentDataFilePath = [self createDirectory:currentDataFilePath];
+    
+    currentDataFilePath = [currentDataFilePath stringByAppendingPathComponent:[NSString stringWithFormat:@"%@-dictionary.plist",[self md5:dataUrlString]]];
+    yesterdayDataFilePath = [yesterdayDataFilePath stringByAppendingPathComponent:[NSString stringWithFormat:@"%@-dictionary.plist",[self md5:dataUrlString]]];
+    
+    NSDictionary *localDictionaryData = [self fromFilenamePathFetchLocalDictionaryData:currentDataFilePath];
+    
+    if(localDictionaryData != nil){//本地数据
+//        NSLog(@"本地数据 localFetchTeleplayRankDictionayData 数据");
+        return localDictionaryData;
+    }else{//远程获取数据
+//        NSLog(@"远程获取数据 localFetchTeleplayRankDictionayData 数据");
+        NSMutableData *receivedData = [self remoteFetchData:dataUrlString];
+        
+        if(receivedData != nil){
+            [UIApplication sharedApplication].networkActivityIndicatorVisible = NO;
+            NSError *jsonError = [[NSError alloc] init];
+            NSDictionary *teleplayDictionary = [NSJSONSerialization JSONObjectWithData:receivedData
+                                                                             options:NSJSONReadingMutableContainers
+                                                                               error:&jsonError];
+            
+            NSMutableDictionary *teleplayData = [teleplayDictionary objectForKey:@"data"];
+            
+            if([self storageDictionaryDataToFile:teleplayData fileName:currentDataFilePath]){
+//                NSLog(@"localFetchTeleplayRankDictionayData 远程数据存储成功");
+                return teleplayData;
+                [self removeDirectory];
+            }else{
+                return teleplayData;
+//                NSLog(@"localFetchTeleplayRankDictionayData 远程数据存储失败");
+            }
+        }else{
+            if((localDictionaryData = [self fromFilenamePathFetchLocalDictionaryData:yesterdayDataFilePath]) != nil){
+                return localDictionaryData;
+            }
+        }
+    }
+    return nil;
+}
+
+#pragma mark - 获取本地数据的Dcitionary格式-艺人签单排行榜
++(NSDictionary *) localFetchStarkCheckDictionayData:(NSString *)dataUrlString{
+    NSString *currentDataFilePath = [[self dataPath] stringByAppendingPathComponent:[self fetchTodayDate]];
+    NSString *yesterdayDataFilePath = [[self dataPath] stringByAppendingPathComponent:[self fetchYesterdayDate]];
+    
+    //创建目录
+    currentDataFilePath = [self createDirectory:currentDataFilePath];
+    
+    currentDataFilePath = [currentDataFilePath stringByAppendingPathComponent:[NSString stringWithFormat:@"%@-dictionary.plist",[self md5:dataUrlString]]];
+    yesterdayDataFilePath = [yesterdayDataFilePath stringByAppendingPathComponent:[NSString stringWithFormat:@"%@-dictionary.plist",[self md5:dataUrlString]]];
+    
+    NSDictionary *localDictionaryData = [self fromFilenamePathFetchLocalDictionaryData:currentDataFilePath];
+    
+    if(localDictionaryData != nil){//本地数据
+//        NSLog(@"本地数据 localFetchStarkCheckDictionayData 数据");
+        return localDictionaryData;
+    }else{//远程获取数据
+//        NSLog(@"远程获取数据 localFetchStarkCheckDictionayData 数据");
+        NSMutableData *receivedData = [self remoteFetchData:dataUrlString];
+        
+        if(receivedData != nil){
+            [UIApplication sharedApplication].networkActivityIndicatorVisible = NO;
+            NSError *jsonError = [[NSError alloc] init];
+            NSDictionary *starkCheckDictionary = [NSJSONSerialization JSONObjectWithData:receivedData
+                                                                               options:NSJSONReadingMutableContainers
+                                                                                 error:&jsonError];
+            
+            NSMutableDictionary *starkCheckData = [starkCheckDictionary objectForKey:@"data"];
+            
+            if([self storageDictionaryDataToFile:starkCheckData fileName:currentDataFilePath]){
+//                NSLog(@"localFetchStarkCheckDictionayData 远程数据存储成功");
+                return starkCheckData;
+                [self removeDirectory];
+            }else{
+                return starkCheckData;
+//                NSLog(@"localFetchStarkCheckDictionayData 远程数据存储失败");
+            }
+        }else{
+            if((localDictionaryData = [self fromFilenamePathFetchLocalDictionaryData:yesterdayDataFilePath]) != nil){
+                return localDictionaryData;
+            }
+        }
+    }
+    return nil;
+}
+
+#pragma mark - 获取本地数据的Dcitionary格式-hotTeleplay
++(NSDictionary *) localFetchHotTeleplayDictionayData:(NSString *)dataUrlString{
+    NSString *currentDataFilePath = [[self dataPath] stringByAppendingPathComponent:[self fetchTodayDate]];
+    NSString *yesterdayDataFilePath = [[self dataPath] stringByAppendingPathComponent:[self fetchYesterdayDate]];
+    
+    //创建目录
+    currentDataFilePath = [self createDirectory:currentDataFilePath];
+    
+    currentDataFilePath = [currentDataFilePath stringByAppendingPathComponent:[NSString stringWithFormat:@"%@-dictionary.plist",[self md5:dataUrlString]]];
+    yesterdayDataFilePath = [yesterdayDataFilePath stringByAppendingPathComponent:[NSString stringWithFormat:@"%@-dictionary.plist",[self md5:dataUrlString]]];
+    
+    NSDictionary *localDictionaryData = [self fromFilenamePathFetchLocalDictionaryData:currentDataFilePath];
+    
+    if(localDictionaryData != nil){//本地数据
+//        NSLog(@"本地数据 localFetchHotTeleplayDictionayData 数据");
+        return localDictionaryData;
+    }else{//远程获取数据
+//        NSLog(@"远程获取数据 localFetchHotTeleplayDictionayData 数据");
+        NSMutableData *receivedData = [self remoteFetchData:dataUrlString];
+        
+        if(receivedData != nil){
+            [UIApplication sharedApplication].networkActivityIndicatorVisible = NO;
+            NSError *jsonError = [[NSError alloc] init];
+            NSDictionary *starkCheckDictionary = [NSJSONSerialization JSONObjectWithData:receivedData
+                                                                                 options:NSJSONReadingMutableContainers
+                                                                                   error:&jsonError];
+            
+            NSMutableDictionary *starkCheckData = [starkCheckDictionary objectForKey:@"data"];
+            
+            if([self storageDictionaryDataToFile:starkCheckData fileName:currentDataFilePath]){
+//                NSLog(@"localFetchHotTeleplayDictionayData 远程数据存储成功");
+                return starkCheckData;
+                [self removeDirectory];
+            }else{
+                return starkCheckData;
+//                NSLog(@"localFetchHotTeleplayDictionayData 远程数据存储失败");
+            }
+        }else{
+            if((localDictionaryData = [self fromFilenamePathFetchLocalDictionaryData:yesterdayDataFilePath]) != nil){
+                return localDictionaryData;
+            }
+        }
+    }
+    return nil;
+}
+
+#pragma mark - 获取远程数据的Dcitionary格式-找演员
++(NSDictionary *) remoteFetchFindPerformersDictionayData:(NSString *)dataUrlString{
+    NSString *currentDataFilePath = [[self dataPath] stringByAppendingPathComponent:[self fetchTodayDate]];
+    NSString *yesterdayDataFilePath = [[self dataPath] stringByAppendingPathComponent:[self fetchYesterdayDate]];
+    
+    //创建目录
+    currentDataFilePath = [self createDirectory:currentDataFilePath];
+    
+    currentDataFilePath = [currentDataFilePath stringByAppendingPathComponent:[NSString stringWithFormat:@"%@-dictionary.plist",[self md5:dataUrlString]]];
+    yesterdayDataFilePath = [yesterdayDataFilePath stringByAppendingPathComponent:[NSString stringWithFormat:@"%@-dictionary.plist",[self md5:dataUrlString]]];
+    
+    //远程获取数据
+    NSMutableData *receivedData = [self remoteFetchData:dataUrlString];
+    
+    if(receivedData != nil){
+        [UIApplication sharedApplication].networkActivityIndicatorVisible = NO;
+        NSError *jsonError = [[NSError alloc] init];
+        NSDictionary *personDictionary = [NSJSONSerialization JSONObjectWithData:receivedData
+                                                                         options:NSJSONReadingMutableContainers
+                                                                           error:&jsonError];
+        
+        NSMutableDictionary *searchPersonResult = [personDictionary objectForKey:@"data"];
+        
+        if([self storageDictionaryDataToFile:searchPersonResult fileName:currentDataFilePath]){
+            //                NSLog(@"localFetchFindPerformersDictionayData 远程数据存储成功");
+            return searchPersonResult;
+            [self removeDirectory];
+        }else{
+            return searchPersonResult;
+            //                NSLog(@"localFetchFindPerformersDictionayData 远程数据存储失败");
+        }
+    }
+    return nil;
+}
+
+
++(NSDictionary *) localFetchFindPerformersDictionayData:(NSString *)dataUrlString{
+    NSString *currentDataFilePath = [[self dataPath] stringByAppendingPathComponent:[self fetchTodayDate]];
+    NSString *yesterdayDataFilePath = [[self dataPath] stringByAppendingPathComponent:[self fetchYesterdayDate]];
+    
+    //创建目录
+    currentDataFilePath = [self createDirectory:currentDataFilePath];
+    
+    currentDataFilePath = [currentDataFilePath stringByAppendingPathComponent:[NSString stringWithFormat:@"%@-dictionary.plist",[self md5:dataUrlString]]];
+    yesterdayDataFilePath = [yesterdayDataFilePath stringByAppendingPathComponent:[NSString stringWithFormat:@"%@-dictionary.plist",[self md5:dataUrlString]]];
+    
+    NSDictionary *localDictionaryData = [self fromFilenamePathFetchLocalDictionaryData:currentDataFilePath];
+    
+    if(localDictionaryData != nil){//本地数据
+//        NSLog(@"本地数据 localFetchFindPerformersDictionayData 数据");
+        return localDictionaryData;
+    }else{//远程获取数据
+//        NSLog(@"远程获取数据 localFetchFindPerformersDictionayData 数据");
+        NSMutableData *receivedData = [self remoteFetchData:dataUrlString];
+        
+        if(receivedData != nil){
+            [UIApplication sharedApplication].networkActivityIndicatorVisible = NO;
+            NSError *jsonError = [[NSError alloc] init];
+            NSDictionary *personDictionary = [NSJSONSerialization JSONObjectWithData:receivedData
+                                                                                 options:NSJSONReadingMutableContainers
+                                                                                   error:&jsonError];
+            
+            NSMutableDictionary *searchPersonResult = [personDictionary objectForKey:@"data"];
+            
+            if([self storageDictionaryDataToFile:searchPersonResult fileName:currentDataFilePath]){
+//                NSLog(@"localFetchFindPerformersDictionayData 远程数据存储成功");
+                return searchPersonResult;
+                [self removeDirectory];
+            }else{
+                return searchPersonResult;
+//                NSLog(@"localFetchFindPerformersDictionayData 远程数据存储失败");
+            }
+        }else{
+            if((localDictionaryData = [self fromFilenamePathFetchLocalDictionaryData:yesterdayDataFilePath]) != nil){
+                return localDictionaryData;
+            }
+        }
+    }
+    return nil;
+}
+
+#pragma mark - 存储Dictionary格式的数据到本地-艺人排行版
++(void) savePersonRankDictionaryToLocal:(NSMutableDictionary *)data dataUrlString:(NSString *)urlString{
+    
 }
 
 //md5加密字符串
@@ -186,11 +590,33 @@
     return nil;
 }
 
++(NSDictionary *)fromFilenamePathFetchLocalDictionaryData:(NSString *)filename{
+
+    NSDictionary *dicData = [[NSDictionary alloc] initWithContentsOfFile:filename];
+    
+    if(dicData != nil){
+        return dicData;
+    }
+
+    
+    return nil;
+}
+
 //存储数据到指定文件
 +(BOOL) storageDataToFile:(NSData *)data fileName:(NSString *)fileName{
     //保存数据到指定文件中
     NSFileManager *fileManager = [[NSFileManager alloc] init];
     if([fileManager createFileAtPath:fileName contents:data attributes:nil]){
+        return YES;
+    }else{
+        return NO;
+    }
+}
+
+#pragma mark - 存储Dictionary格式的数据
++(BOOL) storageDictionaryDataToFile:(NSDictionary *)dicData fileName:(NSString *)fileName{
+    //保存数据到指定文件中
+    if([dicData writeToFile:fileName atomically:YES]){
         return YES;
     }else{
         return NO;
